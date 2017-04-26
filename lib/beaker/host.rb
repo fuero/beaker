@@ -502,6 +502,8 @@ module Beaker
     # @param to_path [String] The destination path on the host
     # @param opts [Hash{Symbol=>String}] Options to alter execution
     # @option opts [Array<String>] :ignore An array of file/dir paths that will not be copied to the host
+    # @option opts [Array<String>] :rsync_args An array of arguments to pass to rsync. Default arguments passed to rsync
+    #   despite what's specified here are `-az`.
     def do_rsync_to from_path, to_path, opts = {}
       ssh_opts = self['ssh']
       rsync_args = []
@@ -513,6 +515,11 @@ module Beaker
 
       # We enable achieve mode and compression
       rsync_args << "-az"
+
+      # Add additonal rsync options, if present.
+      if opts.has_key?(:rsync_args) and not opts[:rsync_args].empty?
+        rsync_args << opts[:rsync_args]
+      end
 
       if not self['user']
         user = "root"
@@ -562,13 +569,7 @@ module Beaker
         rsync_args << opts[:ignore].map { |value| "--exclude '#{value}'" }.join(' ')
       end
 
-      # We assume that the *contents* of the directory 'from_path' needs to be
-      # copied into the directory 'to_path'
-      if File.directory?(from_path) and not from_path.end_with?('/')
-        from_path += '/'
-      end
-
-      @logger.notify "rsync: localhost:#{from_path} to #{hostname_with_user}:#{to_path} {:ignore => #{opts[:ignore]}}"
+      @logger.notify "rsync: localhost:#{from_path} to #{hostname_with_user}:#{to_path} {:ignore => #{opts[:ignore]}, :rsync_args #{opts[:rsync_args]}}"
       result = Rsync.run(from_path, to_path, rsync_args)
       @logger.debug("rsync returned #{result.inspect}")
       result
